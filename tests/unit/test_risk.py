@@ -51,3 +51,26 @@ def test_independent_sources_with_opposing_verdicts_create_uncertainty():
     assert correlation.conflicts == ["otx", "urlhaus"]
     assert risk.rule == "R2"
     assert uncertainty.level == "elevated"
+
+
+def test_every_rule_explains_itself():
+    for results in ([result("a", malicious=True), result("b", malicious=True)], [result("a")]):
+        risk, _ = assess_risk(*correlate(results))
+        assert risk.explanation
+
+
+def test_source_without_verdict_never_yields_low_risk():
+    no_verdict = result("urlhaus").model_copy(update={"is_malicious": None})
+
+    risk, uncertainty = assess_risk(*correlate([no_verdict]))
+
+    assert risk.rule == "R4"
+    assert uncertainty.level == "elevated"
+
+
+def test_correlation_normalizes_tags():
+    tagged = result("otx").model_copy(update={"tags": ["Botnet", " botnet ", "C2", ""]})
+
+    unique, _ = correlate([tagged])
+
+    assert unique[0].tags == ["botnet", "c2"]

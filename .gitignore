@@ -3,3 +3,5 @@
 __pycache__/
 .pytest_cache/
 *.egg-info/
+*.sqlite3
+enterprise-attack.json

@@ -15,17 +15,36 @@ def assess_risk(
     if any(result.error_code == ErrorCode.SOURCE_RATE_LIMITED for result in errors):
         reasons.append("A source rate limit was reached")
 
-    if correlation.agreeing_sources >= 2:
-        risk = Risk(level=RiskLevel.HIGH, rule="R1")
-    elif correlation.agreeing_sources == 1:
-        risk = Risk(level=RiskLevel.MEDIUM, rule="R2")
-    elif errors or correlation.conflicts or not results:
-        risk = Risk(level=RiskLevel.INDETERMINATE, rule="R4")
-    else:
-        risk = Risk(level=RiskLevel.LOW, rule="R3")
-
-    uncertainty = Uncertainty(
-        level="elevated" if reasons or not results else "low",
-        reasons=reasons or (["No source returned usable data"] if not results else []),
+    agreeing = correlation.agreeing_sources
+    has_negative_verdict = any(
+        result.status == SourceStatus.OK and result.is_malicious is False for result in results
     )
-    return risk, uncertainty
+    if agreeing >= 2:
+        risk = Risk(
+            level=RiskLevel.HIGH,
+            rule="R1",
+            explanation=f"{agreeing} independent sources report the indicator as malicious",
+        )
+    elif agreeing == 1:
+        risk = Risk(
+            level=RiskLevel.MEDIUM,
+            rule="R2",
+            explanation="Exactly one source reports the indicator as malicious",
+        )
+    elif errors or not has_negative_verdict:
+        risk = Risk(
+            level=RiskLevel.INDETERMINATE,
+            rule="R4",
+            explanation="No malicious report, and not every source could give a verdict",
+        )
+        if not errors:
+            reasons.append("No source returned usable data")
+    else:
+        risk = Risk(
+            level=RiskLevel.LOW,
+            rule="R3",
+            explanation="All sources answered without a malicious report; "
+            "absence from these sources does not prove the indicator is safe",
+        )
+
+    return risk, Uncertainty(level="elevated" if reasons else "low", reasons=reasons)

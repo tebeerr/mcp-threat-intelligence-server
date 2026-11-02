@@ -35,3 +35,17 @@ def test_valid_but_unimplemented_reference_types_are_unsupported(value):
         validate_indicator(value)
 
     assert error.value.code == "UNSUPPORTED_TYPE"
+
+
+@pytest.mark.parametrize("value", ["999.999.999.999", "1.2.3", "https://example.com/a b"])
+def test_mangled_values_are_rejected(value):
+    with pytest.raises(IndicatorValidationError):
+        validate_indicator(value)
+
+
+def test_url_host_is_normalized_for_cache_keys_but_path_case_is_kept():
+    assert validate_indicator("HTTPS://Bad.Example/Payload").value == "https://bad.example/Payload"
+
+
+def test_wildcard_in_url_path_is_a_legitimate_ioc():
+    assert validate_indicator("https://bad.example/a*b").type == IndicatorType.URL

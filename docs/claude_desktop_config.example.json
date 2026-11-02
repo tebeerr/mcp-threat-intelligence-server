@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "threat-intel": {
+      "command": "C:\\path\\to\\mcp-threat-intelligence-server\\.venv\\Scripts\\ti-mcp.exe"
+    }
+  }
+}

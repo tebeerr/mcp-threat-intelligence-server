@@ -28,7 +28,13 @@ async def test_mcp_tool_is_discoverable_and_returns_structured_report():
         listed = await client.list_tools()
         result = await client.call_tool("analyze_indicator", {"value": "example.com"})
 
-    assert [tool.name for tool in listed.tools] == ["analyze_indicator"]
+    assert {tool.name for tool in listed.tools} == {
+        "analyze_indicator",
+        "lookup_indicator",
+        "get_attack_technique",
+        "list_wazuh_alerts",
+        "analyze_alert",
+    }
     assert result.isError is False
     report = result.structuredContent["result"]
     assert report["indicator"]["value"] == "example.com"

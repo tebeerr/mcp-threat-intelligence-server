@@ -89,3 +89,50 @@ async def test_missing_api_key_does_not_make_a_request():
         )
 
     assert result.error_code == ErrorCode.SOURCE_UNAVAILABLE
+
+
+@pytest.mark.asyncio
+async def test_whitelisted_indicator_with_pulses_is_not_malicious():
+    def handler(request):
+        return httpx.Response(200, json={
+            "validation": [{"source": "whitelist", "name": "Whitelisted domain"}],
+            "pulse_info": {"pulses": [{"id": "pulse-1", "tags": ["phishing"]}]},
+        })
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        result = await OTXConnector(settings(), client).lookup(
+            Indicator(type=IndicatorType.DOMAIN, value="google.com")
+        )
+
+    assert result.is_malicious is False
+    assert "whitelisted" in result.note
+
+
+@pytest.mark.asyncio
+async def test_naive_provider_timestamps_are_read_as_utc():
+    def handler(request):
+        return httpx.Response(200, json={"pulse_info": {"pulses": [
+            {"id": "a", "created": "2021-05-19T15:36:44.966000"},
+            {"id": "b", "created": "2022-05-19T15:36:44Z"},
+        ]}})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        result = await OTXConnector(settings(), client).lookup(
+            Indicator(type=IndicatorType.DOMAIN, value="threat.example")
+        )
+
+    assert result.status == SourceStatus.OK
+    assert result.first_seen == datetime(2021, 5, 19, 15, 36, 44, 966000, tzinfo=timezone.utc)
+
+
+@pytest.mark.asyncio
+async def test_unknown_indicator_404_is_not_an_outage():
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda request: httpx.Response(404))
+    ) as client:
+        result = await OTXConnector(settings(), client).lookup(
+            Indicator(type=IndicatorType.SHA256, value="a" * 64)
+        )
+
+    assert result.status == SourceStatus.OK
+    assert result.is_malicious is False
